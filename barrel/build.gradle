@@ -1,0 +1,14 @@
+plugins {
+    id "com.chesapeaketechnology.gradle-garmin-barrel" version "0.2.0-SNAPSHOT"
+    id "com.chesapeaketechnology.garmin-publish-plugin" version "0.2.0-SNAPSHOT"
+}
+
+apply plugin: "com.chesapeaketechnology.gradle-garmin-barrel"
+
+garminBarrel {
+    appName = "BufMonkey"
+}
+
+dependencies {
+    //testCompile group: 'junit', name: 'junit', version: '4.12'
+}

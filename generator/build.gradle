@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+}
+
+ext {
+
+    protocVersion = "3.9.1"
+}
+
+repositories {
+    mavenCentral()
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin'
+    }
+}
+
+//create a single Jar with all dependencies
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example',
+                'Implementation-Version': archiveVersion,
+                'Main-Class': 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin'
+    }
+    archiveBaseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile "com.google.protobuf:protobuf-java:${protocVersion}"
+    compile "com.google.protobuf:protobuf-javalite:${protocVersion}"
+
+//    dependencies {
+//        compile(files("/Users/jcampbell/Code/connectiq-sdk-mac-3.1.8-2020-05-01-5a72d0ab2/bin/monkeybrains.jar"))
+//    }
+}

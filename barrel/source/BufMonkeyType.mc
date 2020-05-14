@@ -2,15 +2,16 @@ using Toybox.StringUtil;
 using Toybox.Lang;
 using Toybox.System;
 
-module ProtoMonkey {
+module BufMonkey {
 
-	class ProtoMonkeyType {
+	class BufMonkeyType {
 	
 		protected var memberDict = {};
 	
 		const MSB = 128;
 		const MAX_BYTE_VALUE = 255;
 		const LAST_THREE = 7;
+		const Infinity = 0x7FF0000000000000;
 		hidden var iter = 0;
 		hidden var lastReadLength = 0;
 		
@@ -31,7 +32,7 @@ module ProtoMonkey {
 			var i = 0;
 		    while(i < bytes.size()) {
 		    	lastReadLength = 0;
-		    	//System.println("i: " + i);
+		    	System.println("i: " + i);
 			    //strip MSB
 			    var currentBytes = bytes[i];
 			    if(bytes[i] > MSB - 1) {
@@ -59,6 +60,13 @@ module ProtoMonkey {
 				    	fieldVal = parseVarint(fieldType, bytes, i);
 				    	System.println("Varint: " + fieldVal);
 				    	i += lastReadLength + 1;
+				    	break;
+				    case 1:
+				    	//TODO:
+				    	System.println("bytes: " + bytes.slice(i, i + 9));
+				    	fieldVal = parse64Bit(fieldType, bytes.slice(i + 1, i + 9));
+				    	System.println("64 bit: " + fieldVal);
+				    	i += 9;
 				    	break;
 				    case 2:
 				    	//length-delimited
@@ -92,13 +100,17 @@ module ProtoMonkey {
 					return parseSignedVarInt(buf, idx);
 				case "int32":
 				case "uint32":
+					return parseUnsignedVarInt(buf, idx);
 				case "int64":
 				case "uint64":
-					return parseUnsignedVarInt(buf, idx);
+					return parseUnsignedVarLong(buf, idx);
+				case "sint64":
+					return parseSignedVarLong(buf, idx);
 				case "bool":
 					return parseUnsignedVarInt(buf, idx) == 1;
 				case "enum":
 					//unhandled
+					//TODO:
 				default:
 					break;
 			}
@@ -137,6 +149,25 @@ module ProtoMonkey {
 			
 			return null;
 		}
+		
+		function parse64Bit(type, buf) {
+			switch(type) {
+				case "double":
+					var bigEndian = buf.reverse();
+					System.println("Big Endian: " + bigEndian);
+					var double = parse64bitFloat(0, 4, buf, 0);
+					System.println("double: " + double);
+					return 0;
+				case "fixed32":
+					//TODO
+				case "sfixed32":
+					//TODO
+				default:
+					break;
+			}
+			
+			return null;
+		}
 	
 		function parseUnsignedVarInt(buf, idx) {
 			var shifter = 0; 
@@ -155,6 +186,24 @@ module ProtoMonkey {
 		    return val;                        
 		}
 		
+		function parseUnsignedVarLong(buf, idx) {
+			var shifter = 0; 
+			var val = 0l;
+			                           
+		    do                                              
+		    {
+		    	var longVal = buf[idx].toLong(); 
+		    	lastReadLength++;                                             
+		        idx++;                                      
+		        val |= (longVal & 0x7F) << shifter;        
+		        shifter += 7;                               
+		    }                                               
+		    while (buf[idx].toLong() & 0x80l); 
+		    
+		    iter = idx;
+		    return val;                        
+		}
+		
 		function parseSignedVarInt(buf, idx) {
 	        var raw = parseUnsignedVarInt(buf, idx);
 	        var temp = (((raw << 31) >> 31) ^ raw) >> 1;
@@ -162,6 +211,16 @@ module ProtoMonkey {
 	        // negative results from read unsigned methods as like unsigned values.
 	        // Must re-flip the top bit if the original read value had it set.
 	        return temp ^ (raw & (1 << 31));
+	                         
+		}
+		
+		function parseSignedVarLong(buf, idx) {
+	        var raw = parseUnsignedVarLong(buf, idx);
+	        var temp = (((raw << 63) >> 63) ^ raw) >> 1;
+	        // This extra step lets us deal with the largest signed values by treating
+	        // negative results from read unsigned methods as like unsigned values.
+	        // Must re-flip the top bit if the original read value had it set.
+	        return temp ^ (raw & (1l << 63));
 	                         
 		}
 		
@@ -194,6 +253,40 @@ module ProtoMonkey {
 			
 			return val;
 		}
+		
+		function parse64bitFloat(off0, off1, buf, pos) {
+            var lo = readUintLE(buf, pos + off0),
+                hi = readUintLE(buf, pos + off1);
+                
+            System.println("lo: " + lo);
+            System.println("hi: " + hi);
+            var sign = (hi >> 31) * 2 + 1;
+            var exponent = hi >> 20 & 2047;
+            var mantissa = 4294967296l * (hi & 1048575) + lo;
+            
+            return exponent == 2047
+                ? mantissa
+                ? NaN
+                : sign * Infinity
+                : exponent == 0 // denormal
+                ? sign * 5e-324 * mantissa
+                : sign * Math.pow(2, exponent - 1075) * (mantissa + 4503599627370496l);
+        }
+
+        function readUintLE(buf, pos) {
+		    return (buf[pos    ]
+		          | buf[pos + 1] << 8
+		          | buf[pos + 2] << 16
+		          | buf[pos + 3] << 24) & 0x7FFFFFFF;
+		}
+		
+		function readUintBE(buf, pos) {
+		    return (buf[pos    ] << 24
+		          | buf[pos + 1] << 16
+		          | buf[pos + 2] << 8
+		          | buf[pos + 3]) >> 0;
+		}
+	
 	}
 	
 }

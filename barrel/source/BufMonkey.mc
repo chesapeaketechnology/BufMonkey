@@ -3,7 +3,7 @@ using Toybox.Lang;
 using Toybox.System;
 
 (:test)
-module ProtoMonkey {
+module BufMonkey {
 	const PROTOBUF_TEST = "089ADF918904109CDEF6D3011DECD10542220F74706F6F7030303334392828282821";
 	const MSB = 128;
 	const MAX_BYTE_VALUE = 255;

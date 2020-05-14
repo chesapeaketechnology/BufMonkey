@@ -134,19 +134,20 @@ public class MonkeyWriter
         writeWithIndentAndNewLine("}");
     }
 
-    public String getTypeMapParam(Map<Integer, String> typeMap)
+    public String getTypeMapParam(List<DescriptorProtos.FieldDescriptorProto> typeMap)
     {
+
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append(System.lineSeparator());
         increaseIndent();
         increaseIndent();
 
-        String collect = typeMap.entrySet().stream()
-                .map(integerStringEntry -> {
-                    Integer integer = integerStringEntry.getKey();
-                    String s = integerStringEntry.getValue();
-                    return currentIndentString + integer + " => " + "\"" + s + "\"";
+        String collect = typeMap.stream()
+                .map(fieldDescriptorProto -> {
+                    int integer = fieldDescriptorProto.getNumber();
+                    String typeName = fieldDescriptorProto.getType().name().substring("TYPE_".length()).toLowerCase();
+                    return currentIndentString + integer + " => " + "\"" + typeName + "\"";
                 })
                 .collect(Collectors.joining("," + System.lineSeparator()));
 

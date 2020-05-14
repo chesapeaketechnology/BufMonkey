@@ -79,7 +79,7 @@ public class CompilerPlugin {
                     }
 
                     monkeyWriter.writeConstructor(Collections.emptyList(), "BufMonkeyType",
-                            Collections.singletonList(monkeyWriter.getTypeMapParam(fieldMap)), null);
+                            Collections.singletonList(monkeyWriter.getTypeMapParam(fieldList)), null);
 
                     List<String> fieldNames = new ArrayList<>(fieldMap.values());
                     monkeyWriter.writeToStringFunction(clazzName, fieldNames);

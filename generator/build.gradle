@@ -11,6 +11,8 @@ repositories {
     mavenCentral()
 }
 
+name = 'bufmonkey-generator'
+
 jar {
     manifest {
         attributes 'Main-Class': 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin'

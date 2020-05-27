@@ -75,7 +75,6 @@ public class MonkeyWriter
      */
     public void writeNamespace(String packageName)
     {
-        writeWithIndentAndNewLine("module Generated {", true);
         String[] namespaces = packageName.split("\\.");
         for (String namespace : namespaces)
         {
@@ -324,10 +323,6 @@ public class MonkeyWriter
         }
 
         //One to close the class
-        decreaseIndent(1);
-        writeWithIndentAndNewLine("}");
-
-        //One to close the module
         decreaseIndent(1);
         writeWithIndentAndNewLine("}");
     }

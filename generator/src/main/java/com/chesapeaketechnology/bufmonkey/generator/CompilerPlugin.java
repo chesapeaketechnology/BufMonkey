@@ -20,6 +20,14 @@ public class CompilerPlugin
 {
 
     /**
+     * Allows for configuration of the root module for files to be
+     * generated under. This is useful for code generation usage
+     * in monkey barrels as barrels require all class files to be located
+     * under the barrel module defined in the manifest.xml file.
+     */
+    private static String ROOT_MODULE = "rootModule";
+
+    /**
      * The protoc-gen-plugin communicates via proto messages on System.in and System.out
      *
      * @param args
@@ -58,6 +66,8 @@ public class CompilerPlugin
         CodeGeneratorResponse.Builder response = CodeGeneratorResponse.newBuilder();
         List<DescriptorProtos.FileDescriptorProto> protoFileList = requestProto.getProtoFileList();
 
+        Map<String, String> generatorParameters = ParserUtil.getGeneratorParameters(requestProto);
+
         for (DescriptorProtos.FileDescriptorProto fileDescriptorProto : protoFileList)
         {
             StringWriter writer = new StringWriter();
@@ -67,7 +77,11 @@ public class CompilerPlugin
             List<DescriptorProtos.DescriptorProto> messageTypeList = fileDescriptorProto.getMessageTypeList();
             for (DescriptorProtos.DescriptorProto descriptorProto : messageTypeList)
             {
-                monkeyWriter.writeImports(Arrays.asList("Toybox.System", "BufMonkey.BufMonkeyType"));
+                String root = "BufMonkey";
+                if(generatorParameters.containsKey(ROOT_MODULE)) {
+                    root = generatorParameters.get(ROOT_MODULE) + "." + "BufMonkey";
+                }
+                monkeyWriter.writeImports(Arrays.asList("Toybox.System", root));
                 monkeyWriter.writeNamespace(packageName);
 
                 //message enums
@@ -83,7 +97,7 @@ public class CompilerPlugin
                 String clazzName = descriptorProto.getName();
                 List<DescriptorProtos.FieldDescriptorProto> fieldList = descriptorProto.getFieldList();
 
-                monkeyWriter.writeClassName(clazzName, "BufMonkeyType");
+                monkeyWriter.writeClassName(clazzName, "BufMonkey.BufMonkeyType");
                 Map<Integer, String> fieldMap = new HashMap<>();
                 for (DescriptorProtos.FieldDescriptorProto fieldDescriptorProto : fieldList)
                 {

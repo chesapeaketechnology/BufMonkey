@@ -211,9 +211,12 @@ public class MonkeyWriter
         writeWithIndentAndNewLine("System.println(\"" + className + " {\");");
         for (DescriptorProtos.FieldDescriptorProto field : fields)
         {
+            writeWithIndentAndNewLine("if(" + field.getName() + " != null) {", true);
             boolean isMessage = field.getType().equals(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE);
             writeWithIndentAndNewLine("System.println(\"     " + field.getName() + ": \" + "
                     + field.getName() + (isMessage ? ".print()" : ".toString()") + ");");
+            decreaseIndent(1);
+            writeWithIndentAndNewLine("}");
         }
         writeWithIndentAndNewLine("System.println(\"}\");");
 

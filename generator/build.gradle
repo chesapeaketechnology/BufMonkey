@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'application'
     id 'com.github.johnrengelman.shadow' version '4.0.2'
     id 'edu.sc.seis.launch4j' version '2.4.4'
 }
@@ -13,8 +12,6 @@ ext {
 repositories {
     mavenCentral()
 }
-
-mainClassName = 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin'
 
 task prependShellStub() {
     doLast {
@@ -38,7 +35,7 @@ shadowJar {
     exclude 'META-INF/*.RSA'
 
     manifest {
-        attributes("Main-Class": mainClassName,
+        attributes("Main-Class": 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin',
                 "Implementation-Version": version)
     }
     archiveFileName = "protoc-gen-bufmonkey"
@@ -65,6 +62,7 @@ dependencies {
 publishing {
     publications {
         maven(MavenPublication) {
+            artifacts = []
             artifactId 'protoc-gen-bufmonkey'
             artifact("$buildDir/artifacts/protoc-gen-bufmonkey" as File) {
                 classifier "osx-x86_64"
@@ -81,6 +79,14 @@ publishing {
                 classifier "windows-x86_64"
                 extension "exe"
                 builtBy createExe
+            }
+
+            pom.withXml {
+                // This isn't any sort of Java archive artifact, and OSSRH doesn't enforce
+                // javadoc for 'pom' packages. 'exe' would be a more appropriate packaging
+                // value, but it isn't clear how that will be interpreted. In addition,
+                // 'pom' is typically the value used when building an exe with Maven.
+                asNode().project.packaging*.value = 'pom'
             }
         }
     }

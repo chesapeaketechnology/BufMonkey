@@ -5,64 +5,12 @@ plugins {
     id 'edu.sc.seis.launch4j' version '2.4.4'
 }
 
-apply plugin: 'signing'
-apply plugin: 'maven'
-
 ext {
     protocVersion = "3.9.1"
 }
 
 repositories {
     mavenCentral()
-}
-
-uploadArchives {
-    repositories {
-        mavenDeployer {
-
-            // Sign POM
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            // Destination
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            // Add required metadata to POM
-            pom.project {
-                name = project.group + ":" + project.name
-                url = 'https://github.com/chesapeaketechnology/BufMonkey'
-                description = "BufMonkey Artifacts"
-
-                scm {
-                    connection = 'scm:git:https://github.com/chesapeaketechnology/BufMonkey.git'
-                    developerConnection = 'scm:git:git@github.com:chesapeaketechnology/BufMonkey.git'
-                    url = 'https://github.com/chesapeaketechnology/BufMonkey'
-                }
-
-                licenses {
-                    license {
-                        name = 'Apache 2.0'
-                        url = 'https://opensource.org/licenses/Apache-2.0'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = "ctic.us"
-                        name = "CTI Developers"
-                        email = "info@ctic-inc.com"
-                        url = "https://github.com/chesapeaketechnology/BufMonkey"
-                        organization = "Chesapeake Technology International"
-                        organizationUrl = "https://ctic.us/"
-                    }
-                }
-            }
-        }
-    }
 }
 
 task prependShellStub() {
@@ -133,10 +81,13 @@ publishing {
                 builtBy createExe
             }
 
+            pom.withXml {
+                // This isn't any sort of Java archive artifact, and OSSRH doesn't enforce
+                // javadoc for 'pom' packages. 'exe' would be a more appropriate packaging
+                // value, but it isn't clear how that will be interpreted. In addition,
+                // 'pom' is typically the value used when building an exe with Maven.
+                asNode().project.packaging*.value = 'pom'
+            }
         }
     }
-}
-
-signing {
-    sign publishing.publications.maven
 }

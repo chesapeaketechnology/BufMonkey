@@ -1,17 +1,10 @@
 plugins {
-    id "com.chesapeaketechnology.gradle-garmin-barrel" version "0.2.1"
+    id "com.chesapeaketechnology.gradle-garmin-barrel" version "0.2.2"
 }
 
+apply plugin: 'maven-publish'
 apply plugin: "com.chesapeaketechnology.gradle-garmin-barrel"
 
 garminBarrel {
     appName = "BufMonkey"
-
-    test {
-        device = 'fenix5plus'
-    }
-}
-
-dependencies {
-    //testCompile group: 'junit', name: 'junit', version: '4.12'
 }

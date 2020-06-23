@@ -14,10 +14,18 @@ import java.util.*;
  * Protoc plugin that gets called by the protoc executable. The communication happens
  * via protobuf messages on System.in / System.out
  *
- * @author Florian Enner
- * @since 05 Aug 2019
+ * @since 0.1.0
  */
-public class CompilerPlugin {
+public class CompilerPlugin
+{
+
+    /**
+     * Allows for configuration of the root module for files to be
+     * generated under. This is useful for code generation usage
+     * in monkey barrels as barrels require all class files to be located
+     * under the barrel module defined in the manifest.xml file.
+     */
+    private static String ROOT_MODULE = "rootModule";
 
     /**
      * The protoc-gen-plugin communicates via proto messages on System.in and System.out
@@ -25,153 +33,114 @@ public class CompilerPlugin {
      * @param args
      * @throws IOException
      */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException
+    {
         handleRequest(System.in).writeTo(System.out);
     }
 
-    static CodeGeneratorResponse handleRequest(InputStream input) throws IOException {
-        try {
+    /**
+     * Handles inputs from the the input stream to generate proto definitions in Monkey C
+     *
+     * @param input InputStream to read proto files from
+     * @return {@link CodeGeneratorResponse} response to protobuf compiler
+     */
+    static CodeGeneratorResponse handleRequest(InputStream input)
+    {
+        try
+        {
             return handleRequest(CodeGeneratorRequest.parseFrom(input));
-        } catch (Exception ex) {
+        } catch (Exception ex)
+        {
             return ParserUtil.asErrorWithStackTrace(ex);
         }
     }
 
-    static CodeGeneratorResponse handleRequest(CodeGeneratorRequest requestProto) {
+    /**
+     * Parses a {@link CodeGeneratorRequest} to generate proto definitions in Monkey C
+     *
+     * @param requestProto
+     * @return {@link CodeGeneratorResponse} response to protobuf compiler
+     */
+    static CodeGeneratorResponse handleRequest(CodeGeneratorRequest requestProto)
+    {
         CodeGeneratorResponse.Builder response = CodeGeneratorResponse.newBuilder();
-
-
-        Map<String, String> generatorParameters = ParserUtil.parseGeneratorParameters(requestProto.getParameter());
-
         List<DescriptorProtos.FileDescriptorProto> protoFileList = requestProto.getProtoFileList();
+
+        Map<String, String> generatorParameters = ParserUtil.getGeneratorParameters(requestProto);
 
         for (DescriptorProtos.FileDescriptorProto fileDescriptorProto : protoFileList)
         {
             StringWriter writer = new StringWriter();
-
-            MonkeyWriter monkeyWriter = new MonkeyWriter(writer, fileDescriptorProto);
-
+            MonkeyWriter monkeyWriter = new MonkeyWriter(writer);
             String packageName = fileDescriptorProto.getPackage();
-            //List<DescriptorProtos.FieldDescriptorProto> extensionList = fileDescriptorProto.getExtensionList();
-
-            String name = fileDescriptorProto.getName();
 
             List<DescriptorProtos.DescriptorProto> messageTypeList = fileDescriptorProto.getMessageTypeList();
             for (DescriptorProtos.DescriptorProto descriptorProto : messageTypeList)
             {
-                String clazzName = descriptorProto.getName();
-                int fieldCount = descriptorProto.getFieldCount();
-                List<DescriptorProtos.FieldDescriptorProto> fieldList = descriptorProto.getFieldList();
+                String root = "BufMonkey";
+                if(generatorParameters.containsKey(ROOT_MODULE)) {
+                    root = generatorParameters.get(ROOT_MODULE) + "." + "BufMonkey";
+                }
+                monkeyWriter.writeImports(Arrays.asList("Toybox.System", root));
+                monkeyWriter.writeNamespace(packageName);
 
-                try
+                //message enums
+                List<DescriptorProtos.EnumDescriptorProto> enumTypeList = descriptorProto.getEnumTypeList();
+                for (DescriptorProtos.EnumDescriptorProto enumDescriptorProto : enumTypeList)
                 {
-
-                    monkeyWriter.writeImports(Arrays.asList("Toybox.System", "BufMonkey.BufMonkeyType"));
-                    monkeyWriter.writeNamespace(packageName);
-                    monkeyWriter.writeClassName(clazzName, "BufMonkeyType");
-                    Map<Integer, String> fieldMap = new HashMap<>();
-                    for (DescriptorProtos.FieldDescriptorProto fieldDescriptorProto : fieldList)
-                    {
-                        String fieldName = fieldDescriptorProto.getName();
-                        int number = fieldDescriptorProto.getNumber();
-                        fieldMap.put(number, fieldName);
-                        monkeyWriter.writeField(fieldName, "public");
-                    }
-
-                    monkeyWriter.writeConstructor(Collections.emptyList(), "BufMonkeyType",
-                            Collections.singletonList(monkeyWriter.getTypeMapParam(fieldMap)), null);
-
-                    List<String> fieldNames = new ArrayList<>(fieldMap.values());
-                    monkeyWriter.writeToStringFunction(clazzName, fieldNames);
-                    monkeyWriter.writeSetValueFunction(fieldMap);
-
-                    monkeyWriter.writeClosingBrackets(packageName);
-
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    monkeyWriter.writeModuleName(enumDescriptorProto.getName());
+                    monkeyWriter.writeEnum(enumDescriptorProto.getValueList());
+                    monkeyWriter.writeClosingBracket();
                 }
 
+                //message class
+                String clazzName = descriptorProto.getName();
+                List<DescriptorProtos.FieldDescriptorProto> fieldList = descriptorProto.getFieldList();
+
+                monkeyWriter.writeClassName(clazzName, "BufMonkey.BufMonkeyType");
+                Map<Integer, String> fieldMap = new HashMap<>();
+                for (DescriptorProtos.FieldDescriptorProto fieldDescriptorProto : fieldList)
+                {
+                    String fieldName = fieldDescriptorProto.getName();
+                    int number = fieldDescriptorProto.getNumber();
+                    fieldMap.put(number, fieldName);
+                    monkeyWriter.writeField(fieldName, "public");
+                }
+
+                monkeyWriter.writeConstructor(Collections.emptyList(), "BufMonkeyType",
+                        Collections.singletonList(monkeyWriter.getTypeMapParam(fieldList)), null);
+
+                monkeyWriter.writePrintFunction(clazzName, fieldList);
+                monkeyWriter.writeSetValueFunction(fieldList);
+
+                monkeyWriter.writeClosingBrackets(packageName);
 
                 response.addFile(CodeGeneratorResponse.File.newBuilder()
                         .setName(clazzName + ".mc")
                         .setContent(writer.toString())
                         .build());
+
+                monkeyWriter.flush();
             }
 
-            //
-            String[] split = fileDescriptorProto.getPackage().split("\\.");
+            List<DescriptorProtos.EnumDescriptorProto> enumTypeList = fileDescriptorProto.getEnumTypeList();
+            for (DescriptorProtos.EnumDescriptorProto enumDescriptorProto : enumTypeList)
+            {
+                monkeyWriter.writeNamespace(packageName);
 
-            try
-            {
+                monkeyWriter.writeModuleName(enumDescriptorProto.getName());
+                monkeyWriter.writeEnum(enumDescriptorProto.getValueList());
+                monkeyWriter.writeClosingBrackets(packageName);
+
+                response.addFile(CodeGeneratorResponse.File.newBuilder()
+                        .setName(enumDescriptorProto.getName() + ".mc")
+                        .setContent(writer.toString())
+                        .build());
+
                 monkeyWriter.flush();
-            } catch (IOException e)
-            {
-                e.printStackTrace();
             }
         }
 
-
-
-//        for (RequestInfo.FileInfo file : request.getFiles()) {
-//
-//            // Generate type specifications
-//            List<TypeSpec> topLevelTypes = new ArrayList<>();
-//            TypeSpec.Builder outerClassSpec = TypeSpec.classBuilder(file.getOuterClassName());
-//            Consumer<TypeSpec> list = file.isGenerateMultipleFiles() ? topLevelTypes::add : outerClassSpec::addType;
-//
-//            for (RequestInfo.EnumInfo type : file.getEnumTypes()) {
-//                list.accept(new EnumGenerator(type).generate());
-//            }
-//
-//            for (RequestInfo.MessageInfo type : file.getMessageTypes()) {
-//                list.accept(new MessageGenerator(type).generate());
-//            }
-//
-//            // Omitt completely empty outer classes
-//            if (!file.isGenerateMultipleFiles()) {
-//                topLevelTypes.add(outerClassSpec.build());
-//            }
-//
-//            // Generate Java files
-//            for (TypeSpec typeSpec : topLevelTypes) {
-//
-//                JavaFile javaFile = JavaFile.builder(file.getJavaPackage(), typeSpec)
-//                        .addFileComment("Code generated by protocol buffer compiler. Do not edit!")
-//                        .indent(request.getIndentString())
-//                        .skipJavaLangImports(true)
-//                        .build();
-//
-//                StringBuilder content = new StringBuilder(1000);
-//                try {
-//                    javaFile.writeTo(content);
-//                } catch (IOException e) {
-//                    throw new AssertionError("Could not write to StringBuilder?");
-//                }
-//
-//                response.addFile(CodeGeneratorResponse.File.newBuilder()
-//                        .setName(file.getOutputDirectory() + typeSpec.name + ".java")
-//                        .setContent(content.toString())
-//                        .build());
-//            }
-//
-//        }
-
         return response.build();
-
     }
-
-//    public static String getIndentString(String indent) {
-//        switch (indent) {
-//            case "8":
-//                return "        ";
-//            case "4":
-//                return "    ";
-//            case "2":
-//                return "  ";
-//            case "tab":
-//                return "\t";
-//        }
-//        throw new GeneratorException("Expected 2,4,8,tab. Found: " + indent);
-//    }
-
 }

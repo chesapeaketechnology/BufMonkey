@@ -3,60 +3,50 @@ package com.chesapeaketechnology.bufmonkey.generator;
 import com.google.protobuf.DescriptorProtos;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * TODO: class description
+ * Class which contains methods for writing Monkey C code based on parsed Protobuf inputs
  *
- * @since
+ * @since 0.1.0
  */
 public class MonkeyWriter
 {
+    /**
+     * The Writer object to write the code results
+     */
     private final Writer writer;
-    private final String fileName;
 
+    /**
+     * A single indentation string
+     */
     private final String INDENT = "    ";
-    private final int INDENT_SIZE = INDENT.length();
+
+    /**
+     * The current indentation string value
+     */
     private String currentIndentString = "";
+
+    /**
+     * The current indentation level
+     */
     private int currentIndent = 0;
 
-    public MonkeyWriter(Writer writer, DescriptorProtos.FileDescriptorProto descriptor)
+    public MonkeyWriter(Writer writer)
     {
         this.writer = writer;
-        this.fileName = descriptor.getName();
-        //this.protoPackage = NamingUtil.getProtoPackage(descriptor);
-
-//        this.javaPackage = getParentRequest().applyJavaPackageReplace(
-//                NamingUtil.getJavaPackage(descriptor));
-
-        //this.outerClassName = ClassName.get(javaPackage, NamingUtil.getJavaOuterClassname(descriptor));
-
-        //this.outputDirectory = javaPackage.isEmpty() ? "" : javaPackage.replaceAll("\\.", "/") + "/";
-
-//        DescriptorProtos.FileOptions options = descriptor.getOptions();
-//        this.generateMultipleFiles = options.hasJavaMultipleFiles() && options.getJavaMultipleFiles();
-//        this.deprecated = options.hasDeprecated() && options.getDeprecated();
-//
-//        this.baseTypeId = "." + protoPackage;
-//
-//        this.messageTypes = descriptor.getMessageTypeList().stream()
-//                .map(desc -> new MessageInfo(this, baseTypeId, outerClassName, !generateMultipleFiles, desc))
-//                .collect(Collectors.toList());
-//
-//        enumTypes = descriptor.getEnumTypeList().stream()
-//                .map(desc -> new EnumInfo(this, baseTypeId, outerClassName, !generateMultipleFiles, desc))
-//                .collect(Collectors.toList());
     }
 
     /**
-     * Writes the field out
+     * Writes a single field out to the writer object
      *
-     * @param fieldName
+     * @param fieldName String name of the field
+     * @param modifier  Access modifier
      */
-    public void writeField(String fieldName, String modifier) throws IOException
+    public void writeField(String fieldName, String modifier)
     {
         if (modifier != null)
         {
@@ -69,84 +59,132 @@ public class MonkeyWriter
     /**
      * Writes the imports for the internal and external classes
      *
-     * @param imports
+     * @param imports {@link List} String list of fully qualified import names
      */
-    public void writeImports(List<String> imports) throws IOException
+    public void writeImports(List<String> imports)
     {
-        imports.forEach(importName -> {
-            try
-            {
-                writeWithNewLine("using " + importName + ";");
-            } catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        });
+        imports.forEach(importName -> writeWithNewLine("using " + importName + ";"));
         writeNewLine();
     }
 
-    public void writeNamespace(String packageName) throws IOException
+    /**
+     * Writes a Monkey C namespace based on the provided package name. The namespace will reside under a root Generated
+     * namespace.
+     *
+     * @param packageName String package name read in by Protobuf
+     */
+    public void writeNamespace(String packageName)
     {
-        writeWithIndentAndNewLine("module Generated {", true);
         String[] namespaces = packageName.split("\\.");
         for (String namespace : namespaces)
         {
             if (!namespace.equals(""))
             {
-                writeWithIndentAndNewLine("module " + namespace + " {", true);
+                writeModuleName(namespace);
             }
         }
-
-        writeNewLine();
     }
 
-    public void writeClassName(String className) throws IOException
+    /**
+     * Writes a Monkey C opening class line and bracket
+     *
+     * @param className String name of the class
+     */
+    public void writeClassName(String className)
     {
         writeWithIndentAndNewLine("class " + className + " {", true);
     }
 
-    public void writeClassName(String className, String extendsFrom) throws IOException
+    /**
+     * Writes a Monkey C opening class line that exentds from a parent class
+     *
+     * @param className   String name of the class
+     * @param extendsFrom String name of the parent class
+     */
+    public void writeClassName(String className, String extendsFrom)
     {
         writeWithIndentAndNewLine("class " + className + " extends " + extendsFrom + " {", true);
     }
 
-    public void writeConstructor(List<String> args, String parent, List<String> parentArgs, String body) throws IOException
+    /**
+     * Writes a single module line
+     *
+     * @param moduleName String module name
+     */
+    public void writeModuleName(String moduleName)
+    {
+        writeWithIndentAndNewLine("module " + moduleName + " {", true);
+    }
+
+    /**
+     * Writes a Monkey C constructor with parent initialization if provided.
+     *
+     * @param args List of String arguments for the constructor
+     * @param parent String parent name
+     * @param parentArgs List of String arguments to pass to the parent constructor
+     * @param body String constructor body
+     */
+    public void writeConstructor(List<String> args, String parent, List<String> parentArgs, String body)
     {
         writeNewLine();
         writeWithIndent("function initialize(");
-        writer.write(String.join(",", args));
+        write(String.join(",", args));
         writeWithNewLine(") {");
         increaseIndent();
 
         if (parent != null)
         {
             writeWithIndent(parent + ".initialize(");
-            writer.write(String.join(",", parentArgs));
+            write(String.join(",", parentArgs));
             writeWithNewLine(");");
         }
 
         if (body != null)
         {
-            writer.write(body);
+            write(body);
         }
 
         decreaseIndent(1);
         writeWithIndentAndNewLine("}");
     }
 
-    public String getTypeMapParam(Map<Integer, String> typeMap)
+    /**
+     * Converts a List of {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto} objects to a type map
+     * which maps elements based on their field number.
+     *
+     * @param fieldDescriptorList {@link List<com.google.protobuf.DescriptorProtos.FieldDescriptorProto>}
+     * @return String formatted Type mapping
+     */
+    public String getTypeMapParam(List<DescriptorProtos.FieldDescriptorProto> fieldDescriptorList)
     {
+
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append(System.lineSeparator());
         increaseIndent();
         increaseIndent();
 
-        String collect = typeMap.entrySet().stream()
-                .map(integerStringEntry -> {
-                    Integer integer = integerStringEntry.getKey();
-                    String s = integerStringEntry.getValue();
-                    return currentIndentString + integer + " => " + "\"" + s + "\"";
+        String collect = fieldDescriptorList.stream()
+                .map(fieldDescriptorProto -> {
+                    boolean isRepeated = fieldDescriptorProto.getLabel().equals(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED);
+                    int integer = fieldDescriptorProto.getNumber();
+
+                    String typeName = "";
+                    if (fieldDescriptorProto.getType().equals(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE))
+                    {
+                        typeName = "embedded";
+                    } else
+                    {
+                        typeName = fieldDescriptorProto.getType().name().substring("TYPE_".length()).toLowerCase();
+                    }
+
+                    if (isRepeated)
+                    {
+                        return currentIndentString + integer + " => " + "[" + "\"repeated\", " + "\"" + typeName + "\"" + "]";
+                    } else
+                    {
+                        return currentIndentString + integer + " => " + "[\"" + typeName + "\"" + "]";
+                    }
                 })
                 .collect(Collectors.joining("," + System.lineSeparator()));
 
@@ -159,15 +197,26 @@ public class MonkeyWriter
         return sb.toString();
     }
 
-    public void writeToStringFunction(String className, List<String> fields) throws IOException
+    /**
+     * Writes a print function for printing an object to the console
+     *
+     * @param className String name of the class containing the print method
+     * @param fields {@link List<com.google.protobuf.DescriptorProtos.FieldDescriptorProto>} field list
+     */
+    public void writePrintFunction(String className, List<DescriptorProtos.FieldDescriptorProto> fields)
     {
         writeNewLine();
-        writeWithIndentAndNewLine("function toString() {", true);
+        writeWithIndentAndNewLine("function print() {", true);
 
         writeWithIndentAndNewLine("System.println(\"" + className + " {\");");
-        for (String field : fields)
+        for (DescriptorProtos.FieldDescriptorProto field : fields)
         {
-            writeWithIndentAndNewLine("System.println(\"     " + field + ": \" + " + field + ");");
+            writeWithIndentAndNewLine("if(" + field.getName() + " != null) {", true);
+            boolean isMessage = field.getType().equals(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE);
+            writeWithIndentAndNewLine("System.println(\"     " + field.getName() + ": \" + "
+                    + field.getName() + (isMessage ? ".print()" : ".toString()") + ");");
+            decreaseIndent(1);
+            writeWithIndentAndNewLine("}");
         }
         writeWithIndentAndNewLine("System.println(\"}\");");
 
@@ -175,20 +224,39 @@ public class MonkeyWriter
         writeWithIndentAndNewLine("}");
     }
 
-    public void writeSetValueFunction(Map<Integer, String> fieldNames) throws IOException
+    /**
+     * Writes the setValue function based on the field list
+     *
+     * @param fieldDescriptorProtos {@link List<com.google.protobuf.DescriptorProtos.FieldDescriptorProto>} field list
+     */
+    public void writeSetValueFunction(List<DescriptorProtos.FieldDescriptorProto> fieldDescriptorProtos)
     {
         writeNewLine();
         writeWithIndentAndNewLine("function setValue(position, value) {", true);
 
         writeWithIndentAndNewLine("switch(position) {", true);
 
-        for (Map.Entry<Integer, String> fieldNameEntry : fieldNames.entrySet())
+        for (DescriptorProtos.FieldDescriptorProto fieldDescriptorProto : fieldDescriptorProtos)
         {
-            final int position = fieldNameEntry.getKey();
-            final String fieldName = fieldNameEntry.getValue();
+            final int position = fieldDescriptorProto.getNumber();
+            final String fieldName = fieldDescriptorProto.getName();
+            boolean isMessage = fieldDescriptorProto.getType().equals(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE);
 
             writeWithIndentAndNewLine("case " + position + ":", true);
-            writeWithIndentAndNewLine(fieldName + " = value;");
+
+            if (isMessage)
+            {
+                String typeName = fieldDescriptorProto.getTypeName();
+                if (typeName.startsWith("."))
+                {
+                    typeName = typeName.substring(1);
+                }
+                writeWithIndentAndNewLine(fieldName + " = new " + typeName + "();");
+                writeWithIndentAndNewLine(fieldName + ".decode(value);");
+            } else
+            {
+                writeWithIndentAndNewLine(fieldName + " = value;");
+            }
             writeWithIndentAndNewLine("break;");
             decreaseIndent(1);
         }
@@ -202,17 +270,50 @@ public class MonkeyWriter
         writeWithIndentAndNewLine("}");
     }
 
+    /**
+     * Gets the current writer string
+     * @return String writer output
+     */
     public String toString()
     {
         return writer.toString();
     }
 
-    public void flush() throws IOException
+    /**
+     * Flushes the writer
+     */
+    public void flush()
     {
-        writer.flush();
+        if (writer instanceof StringWriter)
+        {
+            ((StringWriter) writer).getBuffer().setLength(0);
+        } else
+        {
+            try
+            {
+                writer.flush();
+            } catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
     }
 
-    public void writeClosingBrackets(String packageName) throws IOException
+    /**
+     * Writes a single closing bracket
+     */
+    public void writeClosingBracket()
+    {
+        decreaseIndent(1);
+        writeWithIndentAndNewLine("}");
+    }
+
+    /**
+     * Writes the closing brackets needed to close out the whole file
+     *
+     * @param packageName String package name
+     */
+    public void writeClosingBrackets(String packageName)
     {
         String[] namespaces = packageName.split("\\.");
         for (String namespace : namespaces)
@@ -227,37 +328,74 @@ public class MonkeyWriter
         //One to close the class
         decreaseIndent(1);
         writeWithIndentAndNewLine("}");
-
-        //One to close the module
-        decreaseIndent(1);
-        writeWithIndentAndNewLine("}");
     }
 
-    private void writeWithIndent(String s) throws IOException
+    /**
+     * Writes a String with the current indentation
+     *
+     * @param s String to write
+     */
+    private void writeWithIndent(String s)
     {
         writeWithIndent(s, false);
     }
 
-    private void writeWithIndent(String s, boolean increaseIndent) throws IOException
+    /**
+     * Writes a String and then increases the indentation if desired
+     *
+     * @param s String to write
+     * @param increaseIndent whether or not to increase the indentation level
+     */
+    private void writeWithIndent(String s, boolean increaseIndent)
     {
-        writer.write(currentIndentString + s);
+        write(currentIndentString + s);
         if (increaseIndent)
         {
             increaseIndent();
         }
     }
 
-    private void writeWithIndentAndNewLine(String s) throws IOException
+    /**
+     * Writes a String to the output
+     *
+     * @param s String to write
+     */
+    private void write(String s)
+    {
+        try
+        {
+            writer.write(s);
+        } catch (IOException e)
+        {
+            System.out.println("Unable to write the line(s) to the writer due to: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Writes a String with the current indentation and with a new line
+     *
+     * @param s String to write
+     */
+    private void writeWithIndentAndNewLine(String s)
     {
         writeWithIndentAndNewLine(s, false);
     }
 
-    private void writeWithIndentAndNewLine(String s, boolean increaseIndent) throws IOException
+    /**
+     * Writes a String with and indentation if desired and with a new line
+     *
+     * @param s String to write
+     * @param increaseIndent Boolean whether or not to increase the indentation level
+     */
+    private void writeWithIndentAndNewLine(String s, boolean increaseIndent)
     {
         writeWithIndent(s, increaseIndent);
         writeNewLine();
     }
 
+    /**
+     * Increases the indentation level
+     */
     private void increaseIndent()
     {
         currentIndent++;
@@ -268,6 +406,11 @@ public class MonkeyWriter
         }
     }
 
+    /**
+     * Decreases the indentation level
+     *
+     * @param numTimes int number of times to decrease the indentation
+     */
     private void decreaseIndent(int numTimes)
     {
         currentIndent -= numTimes;
@@ -282,13 +425,37 @@ public class MonkeyWriter
         }
     }
 
-    private void writeWithNewLine(String s) throws IOException
+    /**
+     * Writes a string to the Writer with a new line
+     *
+     * @param s String to write
+     */
+    private void writeWithNewLine(String s)
     {
-        writer.write(s + System.lineSeparator());
+        write(s + System.lineSeparator());
     }
 
-    private void writeNewLine() throws IOException
+    /**
+     * Writes a new line to the Writer
+     */
+    private void writeNewLine()
     {
-        writer.write(System.lineSeparator());
+        write(System.lineSeparator());
+    }
+
+    /**
+     * Writes an Enum type
+     *
+     * @param enums {@link List<com.google.protobuf.DescriptorProtos.EnumValueDescriptorProto>} enum values
+     */
+    public void writeEnum(List<DescriptorProtos.EnumValueDescriptorProto> enums)
+    {
+        writeWithIndentAndNewLine("enum {", true);
+        String enumStrings = enums.stream().map(anEnum -> currentIndentString + anEnum.getName()
+                + " = " + anEnum.getNumber())
+                .collect(Collectors.joining("," + System.lineSeparator()));
+        writeWithNewLine(enumStrings);
+        decreaseIndent(1);
+        writeWithIndentAndNewLine("}");
     }
 }

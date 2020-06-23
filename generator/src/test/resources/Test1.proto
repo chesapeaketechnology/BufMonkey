@@ -8,6 +8,6 @@ option java_multiple_files = true;
 message Test1 {
     optional sint64 a = 1;
     optional sint64 b = 2;
-    optional float c = 3;
+    optional double c = 3;
     optional string d = 4;
 }

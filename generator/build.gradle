@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '4.0.2'
+    id 'edu.sc.seis.launch4j' version '2.4.4'
+}
+
+ext {
+    protocVersion = "3.9.1"
+}
+
+repositories {
+    mavenCentral()
+}
+
+task prependShellStub() {
+    doLast {
+        def stub = file("stub.sh")
+        def plugin = new File("${buildDir}/artifacts/protoc-gen-bufmonkey")
+        def tempScript = new File("${buildDir}/protoc-gen-bufmonkey.stubbed")
+        tempScript.write('') // truncate output if needed
+        tempScript << stub.text.normalize() // remove carriage returns
+        tempScript << plugin.bytes
+        plugin.delete()
+        tempScript.renameTo(plugin)
+        plugin.setExecutable(true)
+    }
+}
+
+shadowJar {
+    mergeServiceFiles()
+
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+
+    manifest {
+        attributes("Main-Class": 'com.chesapeaketechnology.bufmonkey.generator.CompilerPlugin',
+                "Implementation-Version": version)
+    }
+    archiveFileName = "protoc-gen-bufmonkey"
+    destinationDirectory = "$buildDir/artifacts" as File
+}
+
+launch4j {
+    outfile = "protoc-gen-bufmonkey-windows-x86_64.exe"
+    mainClassName = mainClassName
+    outputDir = "artifacts"
+    jar = '../artifacts/protoc-gen-bufmonkey'
+    jreMinVersion = JavaVersion.VERSION_1_7
+}
+
+createExe.dependsOn(shadowJar)
+prependShellStub.dependsOn(shadowJar)
+prependShellStub.dependsOn(createExe)
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile "com.google.protobuf:protobuf-java:${protocVersion}"
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifacts = []
+            artifactId 'protoc-gen-bufmonkey'
+            artifact("$buildDir/artifacts/protoc-gen-bufmonkey" as File) {
+                classifier "osx-x86_64"
+                extension "exe"
+                builtBy prependShellStub
+            }
+
+            artifact("$buildDir/artifacts/protoc-gen-bufmonkey" as File) {
+                classifier "linux-x86_64"
+                extension "exe"
+                builtBy prependShellStub
+            }
+            artifact("$buildDir/artifacts/protoc-gen-bufmonkey-windows-x86_64.exe" as File) {
+                classifier "windows-x86_64"
+                extension "exe"
+                builtBy createExe
+            }
+
+            pom.withXml {
+                // This isn't any sort of Java archive artifact, and OSSRH doesn't enforce
+                // javadoc for 'pom' packages. 'exe' would be a more appropriate packaging
+                // value, but it isn't clear how that will be interpreted. In addition,
+                // 'pom' is typically the value used when building an exe with Maven.
+                asNode().project.packaging*.value = 'pom'
+            }
+        }
+    }
+}

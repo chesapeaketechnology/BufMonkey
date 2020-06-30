@@ -1,0 +1,31 @@
+plugins {
+    id "com.chesapeaketechnology.gradle-garmin-barrel" version "0.2.2"
+}
+
+apply plugin: 'maven-publish'
+apply plugin: "com.chesapeaketechnology.gradle-garmin-barrel"
+
+garminBarrel {
+    appName = "BufMonkey"
+}
+
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifacts = []
+            artifactId garminBarrel.appName
+            artifact("$buildDir/barrel/" + garminBarrel.appName.toString() + ".barrel" as File) {
+                extension "barrel"
+            }
+
+            pom.withXml {
+                // This isn't any sort of Java archive artifact, and OSSRH doesn't enforce
+                // javadoc for 'pom' packages. 'exe' would be a more appropriate packaging
+                // value, but it isn't clear how that will be interpreted. In addition,
+                // 'pom' is typically the value used when building an exe with Maven.
+                asNode().project.packaging*.value = 'pom'
+            }
+        }
+    }
+}

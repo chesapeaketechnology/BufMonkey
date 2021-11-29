@@ -2,7 +2,7 @@
 Protobuf support for Garmin's Monkey C programming language 
 
 Unsupported Features
- * `Maps` can be used with a [workaround](https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility)
+ * `Maps` can be used with a [workaround](https://developers.google.com/protocol-buffers/docs/proto3#backwards_compatibility)
  * `Extensions` and `Services` are currently not supported
  * Unknown fields are dropped
  * `OneOf` is not supported (yet)
@@ -14,7 +14,8 @@ Unsupported Features
  
  <details>
  <summary><b>Manually</b></summary><p>
- Download the [BufMonkey barrel]() and drop it into your barrels folder of your Garmin
+ 
+ Download the <a href="https://github.com/chesapeaketechnology/BufMonkey/tree/master/barrel">BufMonkey barrel</a> and drop it into your barrels folder of your Garmin
  application project. Update your jungle file to reference the barrel.
  </p>
  </details>
@@ -22,16 +23,16 @@ Unsupported Features
  <details>
  <summary><b>Eclipse</b></summary><p>
  
- Download the [BufMonkey barrel]() or clone this repo and follow the instructions
- for "How to include Barrels" on the [Garmin Website](https://developer.garmin.com/connect-iq/programmers-guide/shareable-libraries).
+ Download the <a href="https://github.com/chesapeaketechnology/BufMonkey/tree/master/barrel">BufMonkey barrel</a> or clone this repo and follow the instructions
+ for "How to include Barrels" on the <a href="https://developer.garmin.com/connect-iq/core-topics/shareable-libraries/#howtoincludebarrels">Garmin Website</a>.
  </p>
  </details>
  
  <details>
  <summary><b>Gradle-Garmin plugin</b></summary><p>
- Barrels can be easily added to a project that use the [gradle-garmin plugin](https://github.com/chesapeaketechnology/gradle-garmin).
+ Barrels can be easily added to a project that use the <a href="https://github.com/chesapeaketechnology/gradle-garmin">gradle-garmin plugin</a>.
  Add the plugin to your gradle script and then reference the barrel using standard artifact notation as described in
- the [Barrel Dependencies](https://github.com/chesapeaketechnology/gradle-garmin#barrel-dependencies) section:
+ the <a href="https://github.com/chesapeaketechnology/gradle-garmin#barrel-dependencies">Barrel Dependencies</a>) section:
  
  ```groovy
 dependencies {
@@ -46,8 +47,8 @@ dependencies {
 <details>
 <summary>Manual Generation</summary><p>
 
-* Download an appropriate [protoc.exe](https://repo1.maven.org/maven2/com/google/protobuf/protoc/) and add the directory to the `$PATH`
-* Download [protoc-gen-bufmonkey]() and extract the files into the same directory or somewhere else on the `$PATH`.
+* Download an appropriate <a href="https://repo1.maven.org/maven2/com/google/protobuf/protoc/">protoc.exe</a> and add the directory to the `$PATH`
+ * Download <a href="https://github.com/chesapeaketechnology/BufMonkey/tree/master/generator">generator</a> and extract the files into the same directory or somewhere else on the `$PATH`.
   * Running the plugin requires Java8 or higher to be installed
   * Protoc does have an option to define a plugin path, but it does not seem to work with the wrapper scripts
 * Call `protoc` with `--bufmonkey_out=./path/to/generate`
@@ -57,7 +58,7 @@ dependencies {
 <details>
 <summary>Protobuf Gradle Plugin</summary><p>
 
-* [Add the plugin to your project](https://github.com/google/protobuf-gradle-plugin#adding-the-plugin-to-your-project)
+ * <a href="https://github.com/google/protobuf-gradle-plugin#adding-the-plugin-to-your-project">Add the plugin to your project</a>
 * Configure the plugin to use the BufMonkey code generator plugin
 ```groovy
 protobuf {

@@ -22,7 +22,7 @@ module BufMonkey {
     /**
     * Infinity definition for floating point calculations
     */
-    const INFINITY = 0x7FF0000000000000;
+    const INFINITY = 0x7FF0000000000000l;
 
     /**
     * Main class which generated classes extend from to get encoding and decoding functionality.
